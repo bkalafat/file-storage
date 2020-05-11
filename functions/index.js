@@ -1,20 +1,22 @@
-const functions = require("firebase-functions");
-const os = require("os");
-const path = require("path");
-const cors = require("cors")({ origin: true });
-const Busboy = require("busboy");
-const fs = require("fs");
+const functions = require("firebase-functions")
+const os = require("os")
+const path = require("path")
+const cors = require("cors")({ origin: true })
+const Busboy = require("busboy")
+const fs = require("fs")
+const UUID = require("uuid-v4")
 
-const { Storage } = require('@google-cloud/storage');
-const projectId = 'news-26417';
-const keyFilename = 'news-26417-firebase-adminsdk-2i8qf-fb9cd77194.json'
-let gcs = new Storage ({
+const { Storage } = require("@google-cloud/storage")
+const projectId = "news-26417"
+const keyFilename = "news-26417-firebase-adminsdk-2i8qf-fb9cd77194.json"
+let gcs = new Storage({
   projectId,
-  keyFilename
-});
-
+  keyFilename,
+})
 
 exports.uploadFile = functions.https.onRequest((req, res) => {
+  let uuid = UUID()
+
   cors(req, res, () => {
     if (req.method !== "POST") {
       return res.status(500).json({
@@ -32,18 +34,27 @@ exports.uploadFile = functions.https.onRequest((req, res) => {
 
     busboy.on("finish", () => {
       const bucket = gcs.bucket("news-26417.appspot.com/")
+
       bucket
         .upload(uploadData.file, {
           uploadType: "media",
           metadata: {
             metadata: {
               contentType: uploadData.type,
+              firebaseStorageDownloadTokens: uuid,
             },
           },
         })
-        .then(() => {
+        .then((data) => {
+          let file = data[0]
           res.status(200).json({
-            message: "It worked!",
+            fileUrl:
+              "https://firebasestorage.googleapis.com/v0/b/" +
+              bucket.name +
+              "/o/" +
+              encodeURIComponent(file.name) +
+              "?alt=media&token=" +
+              uuid,
           })
         })
         .catch((err) => {
